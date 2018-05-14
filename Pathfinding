@@ -1,0 +1,394 @@
+#-------------------------------------------------------------------------------
+# Name:        module1
+# Purpose:
+#
+# Author:      thomu
+#
+# Created:     17-03-2018
+# Copyright:   (c) thomu 2018
+# Licence:     <your licence>
+#-------------------------------------------------------------------------------
+import operator
+import csv
+import sys
+import random
+import copy
+f = open("pathfinding_a.txt", "r+")
+w = open("pathfinding_a_out.txt", "w")
+visited = []
+Q = []
+row = -1
+table = []
+backup = []
+StartX = 0
+StartY = 0
+GoalX = 0
+GoalY = 0
+sys.setrecursionlimit(10000000)
+def algorithm():
+    global Q
+    current = Q[0]
+    #print ("moving to " + str(Q[0].X) + "," + str(Q[0].Y))
+    current.checkNeighbours() ### Add neighbours to queue
+    if(Q != []):
+        if(h(Q[0].X,Q[0].Y) != 0):
+            algorithm()
+        else:
+            Q[0].checkNeighbours()
+            #print (current.path)
+            for i in current.path:
+                table[i[0]][i[1]] = 'P'
+            #print("DONE")
+            Q = []
+    else:
+        return
+
+def h(X, Y):
+    if table[X][Y] == 'X':
+        return float("inf")
+    return abs(GoalX-X)+abs(GoalY-Y)
+
+def dh(X, Y):
+    if table[X][Y] == 'X':
+        return float("inf")
+    else:
+        return max(abs(GoalX - X),abs(GoalY - Y))
+class diagonal_node():
+    def __init__(self, X, Y, path):
+        self.X = X
+        self.Y = Y
+        self.h = dh(X,Y)
+        self.path = path
+        self.neighbours = []
+
+        visited[self.X][self.Y] = self
+    def checkNeighbours(self):
+        global Q
+        Q = Q[1:] #Shave, to exclude current node
+        AnX = float("inf")
+
+        need_to_check = []
+        for l in range(-1,2):
+            for m in range(-1,2):
+                need_to_check.append([l,m])
+        for n in need_to_check:
+            h_value = dh(self.X + n[0], self.Y + n[1])
+            if h_value != AnX and visited[self.X + n[0]][self.Y + n[1]] == None:
+                self.neighbours.append(diagonal_node(self.X +n[0], self.Y +n[1], self.path+[[self.X +n[0], self.Y+n[1]]]))
+
+        Q = self.neighbours + Q
+        Q = sorted(Q, key=operator.attrgetter('h'))
+
+class node():
+    def __init__(self, X, Y, path):
+        self.X = X
+        self.Y = Y
+        self.h = h(X,Y)
+        self.path = path
+        self.neighbours = []
+
+        visited[self.X][self.Y] = self
+
+    def checkNeighbours(self):
+        global Q
+        Q = Q[1:] #Shave, to exclude current node
+        AnX = float("inf")
+
+        need_to_check = [[0,-1],[-1,0],[0,1],[1,0]]
+        for n in need_to_check:
+            valx = self.X + n[0]
+            valy = self.Y + n[1]
+            h_value = h(valx, valy)
+            if h_value != AnX and visited[valx][valy] == None:
+                self.neighbours.append(node(valx, valy, self.path+[[valx, valy]]))
+
+
+        Q = self.neighbours + Q
+        Q = sorted(Q, key=operator.attrgetter('h'))
+        #print ("printing queue")
+        #for i in Q:
+        #    print (i.X, i.Y, i.h)
+
+def H(X, Y, steps):
+    if table[X][Y] == 'X':
+        return float("inf")
+    return abs(GoalX-X)+abs(GoalY-Y) + steps
+def dH(X, Y, steps):
+    if table[X][Y] == 'X':
+        return float("inf")
+    return max(abs(GoalX - X),abs(GoalY - Y)) + steps
+class A_node():
+    def __init__(self, X, Y, parent):
+        self.X = X
+        self.Y = Y
+        self.came_from = parent
+        if parent != None:
+            self.steps_taken = parent.steps_taken +1
+        else:
+            self.steps_taken = 0
+        self.h = H(X,Y,self.steps_taken)
+        self.neighbours = []
+        visited[self.X][self.Y] = self
+        if parent != None:
+            self.path = parent.path+[[self.X,self.Y]]
+        else:
+            self.path = []
+    def checkNeighbours(self):
+        global Q
+        Q = Q[1:] #Shave, to exclude current node
+        AnX = float("inf") #literally "An X"
+        need_to_check = [[0,-1],[-1,0],[0,1],[1,0]]
+        for n in need_to_check:
+            valx = self.X + n[0]
+            valy = self.Y + n[1]
+            h_value = H(valx, valy, self.steps_taken)
+            if h_value != AnX and visited[valx][valy] == None:
+                self.neighbours.append(A_node(valx, valy, self))
+            elif h_value != AnX:
+                if visited[valx][valy].steps_taken > self.steps_taken +1:
+                    visited[valx][valy].__init__(visited[valx][valy].X,visited[valx][valy].Y,self)
+        Q = self.neighbours + Q
+        Q = sorted(Q, key=operator.attrgetter('h'))
+        #for i in Q:
+        #    print (i.X, i.Y, i.h)
+class diagonal_A_node():
+    def __init__(self, X, Y, parent):
+        self.X = X
+        self.Y = Y
+        self.came_from = parent
+        if parent != None:
+            self.steps_taken = parent.steps_taken +1
+        else:
+            self.steps_taken = 0
+        self.h = dH(X,Y,self.steps_taken)
+        self.neighbours = []
+        visited[self.X][self.Y] = self
+        if parent != None:
+            self.path = parent.path+[[self.X,self.Y]]
+        else:
+            self.path = []
+    def checkNeighbours(self):
+        global Q
+        Q = Q[1:] #Shave, to exclude current node
+        AnX = float("inf") #literally "An X"
+        need_to_check =[]
+        for l in range (-1,2):
+            for m in range(-1,2):
+                need_to_check.append([l,m])
+        #print ("need to check " + str(need_to_check))
+        for n in need_to_check:
+            valx = self.X + n[0]
+            valy = self.Y + n[1]
+            h_value = dH(valx, valy, self.steps_taken)
+            if h_value != AnX and visited[valx][valy] == None:
+                self.neighbours.append(diagonal_A_node(valx, valy, self))
+            elif h_value != AnX:
+                if visited[valx][valy].steps_taken < self.steps_taken:
+                    self.__init__(self.X,self.Y,visited[valx][valy])
+        #print(self.X,self.Y,self.h, h(valx, valy), "!")
+        Q = self.neighbours + Q
+        Q = sorted(Q, key=operator.attrgetter('h'))
+        #for i in range(0,10):
+        #    try:
+        #        print (i,Q[i].X, Q[i].Y)
+       #     except:
+        #        break
+        #for i in Q:
+        #    print (i.X, i.Y, i.h)
+
+for line in f: ### Main for-loop
+    line = list(line)[:-1]
+    row+=1
+
+    if('S' in line): ### Find start location
+        StartX = row
+        StartY = line.index('S')
+    if('G' in line): ### Find goal location
+        GoalX = row
+        GoalY = line.index('G')
+
+    if(line != []): # End of a matrix (empty line seperating matrices)
+        table.append(line)
+    else:
+
+        ### GREEDY
+        #print ("Starting Greedy")
+        visited = [[None for x in range(len(table[0]))] for y in range(len(table))]
+        Q = [node(StartX, StartY, [])]
+        w.write("GREEDY\n")
+        algorithm()
+        for i in range(len(table)):
+            w.write(''.join(table[i]) + "\n")
+        w.write("\n")
+        ### END OF GREED
+        #print ("Starting A*")
+        for i in range(0,len(table)):
+            for j in range(0,len(table[0])):
+                if table[i][j] == 'P':
+                    table[i][j] = '_'
+        ### A*
+        visited = [[None for x in range(len(table[0]))] for y in range(len(table))]
+        Q = [A_node(StartX, StartY, None)]
+        algorithm()
+        w.write("A*\n")
+        for i in range(len(table)):
+            w.write(''.join(table[i]) + "\n")
+        w.write("\n")
+        ### END OF A*
+
+        ### RE-init
+        Q = []
+        row = -1
+        table = []
+        StartX = 0
+        StartY = 0
+        GoalX = 0
+        GoalY = 0
+        #print("")
+### GREEDY
+try:
+    visited = [
+        [None for x in range(len(table[0]))] for y in range(len(table))
+    ]
+    Q = [node(StartX, StartY, [])]
+    #print ("Starting Greedy")
+    algorithm()
+    #Astar()
+
+    ### Write to file
+    w.write("GREEDY\n")
+    for i in range(len(table)):
+        w.write(''.join(table[i]) + "\n")
+    w.write("\n")
+    ### END OF GREEDY
+    #print ('starting erase')
+    for i in range(0,len(table)):
+        for j in range(0,len(table[0])):
+            if table[i][j] == 'P':
+                table[i][j] = '_'
+    #print ('ending erase')
+    #print ("Starting A*")
+    ### A*
+    visited = [
+        [None for x in range(len(table[0]))] for y in range(len(table))
+    ]
+    Q = [A_node(StartX, StartY, None)]
+    algorithm()
+    #Astar()
+
+    ### Write to file
+    w.write("A*\n")
+    for i in range(len(table)):
+        w.write(''.join(table[i]) + "\n")
+    w.write("\n")
+    ### END OF A*
+except :
+    pass
+w.close()
+f.close()
+
+
+### START LAST MATRIX ###
+f = open("pathfinding_b.txt", "r+")
+w = open("pathfinding_b_out.txt", "w")
+
+### Globals
+visited = []
+Q = []
+row = -1
+table = []
+backup = []
+StartX = 0
+StartY = 0
+GoalX = 0
+GoalY = 0
+
+for line in f: ### Main for-loop
+    if line[-1] == '\n':
+        line = list(line)[:-1]
+    row+=1
+
+    if('S' in line): ### Find start location
+        StartX = row
+        StartY = line.index('S')
+    if('G' in line): ### Find goal location
+        GoalX = row
+        GoalY = line.index('G')
+
+    if(line != []): # End of a matrix (empty line seperating matrices)
+        table.append(line)
+    else:
+       # print ("Starting Greedy Diagonal")
+        ### GREEDY
+        visited = [[None for x in range(len(table[0]))] for y in range(len(table))]
+        Q = [diagonal_node(StartX, StartY, [])]
+        w.write("GREEDY\n")
+        algorithm()
+        for i in range(len(table)):
+            w.write(''.join(table[i]) + "\n")
+        w.write("\n")
+        for i in range(0,len(table)):
+            for j in range(0,len(table[0])):
+                if table[i][j] == 'P':
+                    table[i][j] = '_'
+        ### END OF GREEDY
+        #print ("Starting A* Diagonal")
+        ### A*
+        visited = [[None for x in range(len(table[0]))] for y in range(len(table))]
+        Q = [diagonal_A_node(StartX, StartY, None)]
+        algorithm()
+        w.write("A*\n")
+        for i in range(len(table)):
+            w.write(''.join(table[i]) + "\n")
+        w.write("\n")
+        ### END OF A*
+
+        ### RE-init
+        Q = []
+        row = -1
+        table = []
+        StartX = 0
+        StartY = 0
+        GoalX = 0
+        GoalY = 0
+        #("")
+### GREEDY
+try:
+    backup = copy.deepcopy(table)
+    visited = [
+        [None for x in range(len(table[0]))] for y in range(len(table))
+    ]
+    Q = [diagonal_node(StartX, StartY, [])]
+    #print ("Starting Greedy Diagonal")
+    algorithm()
+    #Astar()
+
+    ### Write to file
+    w.write("GREEDY\n")
+    for i in range(len(table)):
+        w.write(''.join(table[i]) + "\n")
+    w.write("\n")
+    table = copy.deepcopy(backup)
+    ### END OF GREEDY
+    for i in range(0,len(table)):
+        for j in range(0,len(table[0])):
+            if table[i][j] == 'P':
+                table[i][j] = '_'
+    ### A*
+    #print("Starting A* Diagonal")
+    visited = [
+        [None for x in range(len(table[0]))] for y in range(len(table))
+    ]
+    Q = [diagonal_A_node(StartX, StartY, None)]
+    algorithm()
+
+    ### Write to file
+    w.write("A*\n")
+    for i in range(len(table)):
+        w.write(''.join(table[i]) + "\n")
+    w.write("\n")
+    ### END OF A*
+except:
+    pass
+w.close()
+f.close()
