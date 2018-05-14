@@ -1,0 +1,127 @@
+-----------------------------------------------------------------------------
+# Name:        Alpha Beta Pruning
+# Purpose:
+#
+# Author:      Thomas Parker 10098777
+#
+# Created:     13-03-2018
+# Copyright:   (c) thomu 2018
+#-------------------------------------------------------------------------------
+import math
+
+
+class Node:
+    def __init__(self, name, nodeType,nodeValue):
+        self.n = name
+        self.nt = nodeType
+        self.value = nodeValue
+        self.children = []
+
+
+def Max_Value(node,alpha, beta):
+    global nodesVisited
+    if node.nt == "leaf":
+        nodesVisited +=1
+        if type(nodeValue)!= type(1):
+            print ("bad value")
+        return node.value
+
+    nodeValue = float("-inf")
+    for childNode in node.children:
+        childValue = Min_Value(childNode,alpha,beta)
+
+        if childValue > nodeValue:
+            nodeValue = childValue
+
+        if childValue >= beta:
+            return nodeValue
+
+        if childValue > alpha:
+            alpha = childValue
+    #print ("Max value was " + str(nodeValue))
+    return nodeValue
+
+
+def Min_Value(node,alpha, beta):
+    global nodesVisited
+    if node.nt == "leaf":
+        nodesVisited +=1
+        return node.value
+
+    nodeValue = float("inf")
+    for childNode in node.children:
+        childValue = Max_Value(childNode, alpha, beta)
+
+        if childValue < nodeValue:
+            nodeValue = childValue
+        if childValue <= alpha:
+            return nodeValue
+
+        if childValue < beta:
+            beta = childValue
+    return nodeValue
+
+
+def InputToNodes(InputString):
+    global nodeList
+    global nodeDict
+    i = 0
+    while InputString[i] != "}":
+         if  InputString[i] == "(":
+            i+=1
+            nodeName = ""
+            while InputString[i] != ",":
+                nodeName += InputString[i]
+                i+=1
+            i+=1
+            nodeType = ""
+            while InputString[i]!=")":
+                nodeType += InputString[i]
+                i+=1
+            x =  Node(nodeName,nodeType,None)
+            nodeList.append(nodeName)
+            nodeDict[nodeName] = x
+         i+=1
+    i+=1
+    while InputString[i] != "}":
+        if InputString[i] == "(":
+            i+=1
+            node1name = ""
+            while InputString[i] != ",":
+                node1name += InputString[i]
+                i+=1
+            i+=1
+            node2name = ""
+            while InputString[i]!=")":
+                node2name +=InputString[i]
+                i+=1
+           # print("appended " + node2name + " to " + node1name + "'s children")
+            try:
+                nodeDict[node1name].children.append(nodeDict[node2name])
+            except KeyError:
+                nodeDict[node1name].children.append(Node(node2name,"leaf",int(node2name)))
+
+        i+=1
+
+f = open('alphabeta.txt')
+graphs = []
+for line in f:
+    if '{' in line:
+        graphs.append(line)
+GraphCount = 0
+f2 = open('alphabeta_out.txt', 'w')
+for graph in graphs:
+    GraphCount +=1
+    nodeList = []
+    nodeDict = {}
+    nodesVisited = 0
+    InputToNodes(graph)
+    firstnode = nodeDict[nodeList[0]]
+    if firstnode.nt == "MAX":
+        f2.write("Graph " + str(GraphCount) + ": Score: " + str(Max_Value(firstnode, float("-inf"), float("inf"))) + "; Lead Nodes Examined: " + str(nodesVisited) + "\n")
+    elif firstnode.nt == "MIN":
+        f2.write("Graph " + str(GraphCount) + ": Score: " + str(Min_Value(firstnode, float("-inf"), float("inf"))) + "; Lead Nodes Examined: " + str(nodesVisited) + "\n")
+    else:
+        print ("error, node type incorrect")
+f2.close()
+
